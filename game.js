@@ -6,53 +6,53 @@ const dialogBox = document.getElementById('dialogBox');
 const battleScreen = document.getElementById('battleScreen');
 const actionBtn = document.getElementById('actionBtn');
 
-// Control the canvas size
-function resizeCanvas() {
-    const size = Math.min(window.innerWidth, window.innerHeight);
-    canvas.width = Math.min(800, size);
-    canvas.height = Math.min(600, size * 0.75);
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
 // Game States
 const GAME_STATES = {
     BEDROOM: 'bedroom',
     CITY: 'city',
     BATTLE: 'battle',
-    DIALOGUE: 'dialogue'
+    DIALOGUE: 'dialogue',
+    INTRO: 'intro'
 };
 
 // Game Object
 const game = {
-    state: GAME_STATES.BEDROOM,
+    state: GAME_STATES.INTRO,
     dialogueIndex: 0,
-    playerX: 16,
-    playerY: 16,
+    playerX: 200,
+    playerY: 300,
     hasMegaEvolved: false,
     hasPokedex: false,
     battleState: null,
-    currentDialogue: []
+    currentDialogue: [],
+    nextState: null,
+    canInteract: true,
+    battleStarted: false,
+    dialogueShown: false
 };
 
 // Dialogue sequences
 const DIALOGUES = {
-    wakeUp: [
+    intro: [
+        "Welcome to Pokémon Destiny!",
         "You wake up in your bedroom...",
+        "Today is the day you get your first Pokémon!"
+    ],
+    wakeUp: [
         "Wait... today is the day!",
         "I'm finally old enough to get my first Pokémon!",
         "Let me head to Professor Oak's lab..."
     ],
     professorOak: [
         "Welcome, trainer!",
-        "I'm Professor Oak, and I have great news...",
-        "Unfortunately, all three starter Pokémon are gone!",
+        "I'm Professor Oak!",
+        "I have great news...",
+        "Unfortunately, all three starter Pokémon are already gone!",
         "But don't worry, I have something special for you!",
-        "Meet Lancet - a Steel-type Pokémon!",
-        "Lancet is extremely rare and mighty!",
-        "It has a sharp spear-like tail and armor-like body.",
-        "Take this Pokédex too - it will help you on your journey!",
-        "Good luck, trainer!"
+        "Meet Lancet - a rare Steel-type Pokémon!",
+        "Lancet has a sharp spear-like tail and armor-like body.",
+        "Take this Pokédex too - it will help your journey!",
+        "Now go forth and explore Kanto!"
     ],
     beforeBattle: [
         "As you head towards the city...",
@@ -62,11 +62,11 @@ const DIALOGUES = {
     hazelIntervenes: [
         "Wait! Don't give up!",
         "I'm Hazel! Let me help you!",
-        "Together with Lancet, we can do this!",
+        "Together we can do this!",
         "Let's battle!"
     ],
     victoryCongrats: [
-        "We did it! We won the battle!",
+        "We did it! We won!",
         "Great job, trainer!",
         "Your Lancet is really powerful!",
         "I'm impressed by you two!",
@@ -77,7 +77,6 @@ const DIALOGUES = {
 
 // Input handling
 const keys = {};
-const touches = {};
 
 // Keyboard events
 document.addEventListener('keydown', (e) => {
@@ -93,14 +92,41 @@ document.addEventListener('keyup', (e) => {
 });
 
 // Touch/Click events for D-pad
-document.getElementById('upBtn').addEventListener('pointerdown', () => keys['arrowup'] = true);
-document.getElementById('upBtn').addEventListener('pointerup', () => keys['arrowup'] = false);
-document.getElementById('downBtn').addEventListener('pointerdown', () => keys['arrowdown'] = true);
-document.getElementById('downBtn').addEventListener('pointerup', () => keys['arrowdown'] = false);
-document.getElementById('leftBtn').addEventListener('pointerdown', () => keys['arrowleft'] = true);
-document.getElementById('leftBtn').addEventListener('pointerup', () => keys['arrowleft'] = false);
-document.getElementById('rightBtn').addEventListener('pointerdown', () => keys['arrowright'] = true);
-document.getElementById('rightBtn').addEventListener('pointerup', () => keys['arrowright'] = false);
+document.getElementById('upBtn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    keys['arrowup'] = true;
+});
+document.getElementById('upBtn').addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    keys['arrowup'] = false;
+});
+
+document.getElementById('downBtn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    keys['arrowdown'] = true;
+});
+document.getElementById('downBtn').addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    keys['arrowdown'] = false;
+});
+
+document.getElementById('leftBtn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    keys['arrowleft'] = true;
+});
+document.getElementById('leftBtn').addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    keys['arrowleft'] = false;
+});
+
+document.getElementById('rightBtn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    keys['arrowright'] = true;
+});
+document.getElementById('rightBtn').addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    keys['arrowright'] = false;
+});
 
 // Action button
 actionBtn.addEventListener('click', handleAction);
@@ -113,6 +139,11 @@ function handleAction() {
         } else {
             updateDialogue();
         }
+    } else if (game.state === GAME_STATES.BEDROOM) {
+        // Check if near door
+        if (game.playerY < 200 && game.playerX > canvas.width - 150) {
+            startDialogueSequence(DIALOGUES.professorOak, GAME_STATES.CITY);
+        }
     }
 }
 
@@ -123,7 +154,7 @@ function updateDialogue() {
     }
 }
 
-function showDialogue(dialogueArray, nextState = null) {
+function startDialogueSequence(dialogueArray, nextState = null) {
     game.currentDialogue = dialogueArray;
     game.dialogueIndex = 0;
     game.state = GAME_STATES.DIALOGUE;
@@ -134,17 +165,26 @@ function showDialogue(dialogueArray, nextState = null) {
 function advanceGameState() {
     dialogBox.classList.add('hidden');
     
-    switch(game.state) {
-        case GAME_STATES.DIALOGUE:
-            if (game.nextState) {
-                game.state = game.nextState;
-            }
-            break;
+    if (game.nextState) {
+        if (game.nextState === GAME_STATES.CITY) {
+            game.state = GAME_STATES.CITY;
+            game.playerX = 100;
+            game.playerY = 400;
+            game.hasPokedex = true;
+            game.dialogueShown = false;
+        } else if (game.nextState === GAME_STATES.BATTLE) {
+            game.state = GAME_STATES.BATTLE;
+            game.battleStarted = false;
+            battleScreen.classList.remove('hidden');
+        } else {
+            game.state = game.nextState;
+        }
     }
 }
 
 // Draw functions
-function drawSprite(sprite, x, y, scale = 2) {
+function drawSprite(sprite, x, y, scale = 1) {
+    if (!sprite) return;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(sprite, x, y, sprite.width * scale, sprite.height * scale);
 }
@@ -161,33 +201,36 @@ function drawBedroom() {
     // Simple bedroom elements
     // Bed (brown)
     ctx.fillStyle = '#8b4513';
-    ctx.fillRect(50, canvas.height * 0.4, 150, 100);
+    ctx.fillRect(50, canvas.height * 0.3, 200, 120);
     ctx.fillStyle = '#ff6b6b';
-    ctx.fillRect(55, canvas.height * 0.45, 140, 80);
+    ctx.fillRect(60, canvas.height * 0.35, 180, 100);
 
     // Window
     ctx.fillStyle = '#87ceeb';
-    ctx.fillRect(canvas.width - 120, 20, 100, 80);
+    ctx.fillRect(canvas.width - 150, 30, 120, 100);
     ctx.fillStyle = '#333';
-    ctx.fillRect(canvas.width - 120, 20, 100, 80);
     ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(canvas.width - 110, 30, 40, 40);
-    ctx.strokeRect(canvas.width - 65, 30, 40, 40);
+    ctx.lineWidth = 3;
+    ctx.strokeRect(canvas.width - 150, 30, 120, 100);
+    ctx.strokeRect(canvas.width - 135, 45, 55, 55);
+    ctx.strokeRect(canvas.width - 75, 45, 55, 55);
 
     // Door
     ctx.fillStyle = '#8b4513';
-    ctx.fillRect(canvas.width - 80, canvas.height * 0.4, 60, 150);
+    ctx.fillRect(canvas.width - 120, canvas.height * 0.3, 100, 200);
     ctx.fillStyle = '#ffed4e';
-    ctx.fillRect(canvas.width - 30, canvas.height * 0.6, 15, 15);
+    ctx.fillRect(canvas.width - 40, canvas.height * 0.55, 20, 20);
 
     // Draw player
     drawSprite(SPRITES.player, game.playerX, game.playerY, 2);
 
-    // Text
+    // Instructions
     ctx.fillStyle = '#000';
-    ctx.font = '16px Arial';
+    ctx.font = 'bold 16px Arial';
     ctx.fillText('Your Bedroom', 20, 30);
+    ctx.font = '12px Arial';
+    ctx.fillText('Go to the door (right side)', 20, 50);
+    ctx.fillText('and press SPACE', 20, 70);
 }
 
 function drawLabScene() {
@@ -199,28 +242,33 @@ function drawLabScene() {
     ctx.fillStyle = '#90EE90';
     ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
 
-    // Professor Oak's Lab building (simple)
+    // Professor Oak's Lab building
     ctx.fillStyle = '#a0522d';
-    ctx.fillRect(canvas.width - 250, canvas.height * 0.2, 220, 250);
+    ctx.fillRect(canvas.width - 300, canvas.height * 0.15, 280, 300);
     
     // Roof
     ctx.fillStyle = '#8b0000';
-    ctx.fillRect(canvas.width - 250, canvas.height * 0.2, 220, 30);
+    ctx.fillRect(canvas.width - 300, canvas.height * 0.15, 280, 40);
 
     // Door
     ctx.fillStyle = '#654321';
-    ctx.fillRect(canvas.width - 180, canvas.height * 0.45, 80, 100);
+    ctx.fillRect(canvas.width - 220, canvas.height * 0.4, 100, 120);
+    ctx.fillStyle = '#ffed4e';
+    ctx.fillRect(canvas.width - 200, canvas.height * 0.55, 25, 25);
 
-    // Window
+    // Windows
     ctx.fillStyle = '#87ceeb';
-    ctx.fillRect(canvas.width - 240, canvas.height * 0.35, 50, 50);
+    ctx.fillRect(canvas.width - 280, canvas.height * 0.3, 60, 60);
+    ctx.fillRect(canvas.width - 180, canvas.height * 0.3, 60, 60);
 
-    // Draw player and professor
+    // Draw player
     drawSprite(SPRITES.player, game.playerX, game.playerY, 2);
-    drawSprite(SPRITES.professorOak, canvas.width - 300, canvas.height * 0.35, 2);
+    
+    // Draw professor
+    drawSprite(SPRITES.professorOak, canvas.width - 350, canvas.height * 0.3, 2);
 
     ctx.fillStyle = '#000';
-    ctx.font = '16px Arial';
+    ctx.font = 'bold 16px Arial';
     ctx.fillText("Professor Oak's Lab", 20, 30);
 }
 
@@ -235,30 +283,32 @@ function drawCityScene() {
 
     // Buildings
     ctx.fillStyle = '#ff6b6b';
-    ctx.fillRect(50, canvas.height * 0.25, 120, 200);
+    ctx.fillRect(50, canvas.height * 0.2, 150, 250);
     ctx.fillStyle = '#4169e1';
-    ctx.fillRect(canvas.width - 170, canvas.height * 0.3, 140, 180);
+    ctx.fillRect(canvas.width - 200, canvas.height * 0.25, 170, 230);
 
     // Path
     ctx.fillStyle = '#d2b48c';
-    ctx.fillRect(0, canvas.height * 0.55, canvas.width, 20);
+    ctx.fillRect(0, canvas.height * 0.55, canvas.width, 30);
 
     // Draw player
     drawSprite(SPRITES.player, game.playerX, game.playerY, 2);
 
     ctx.fillStyle = '#000';
-    ctx.font = '16px Arial';
-    ctx.fillText('On the road to the city...', 20, 30);
+    ctx.font = 'bold 16px Arial';
+    ctx.fillText('On the Road to the City...', 20, 30);
+    ctx.font = '12px Arial';
+    ctx.fillText('Move forward (right) to continue', 20, 50);
 }
 
 function drawBattleBackground() {
     // Galaxy/Space theme
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#000033';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // Stars
-    ctx.fillStyle = '#fff';
-    for (let i = 0; i < 100; i++) {
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 150; i++) {
         const x = (i * 73) % canvas.width;
         const y = (i * 127) % canvas.height;
         const size = (i % 3) + 0.5;
@@ -273,17 +323,48 @@ function drawBattleBackground() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
+function drawBattle() {
+    drawBattleBackground();
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    // Draw enemy (Mega Raichu)
+    drawSprite(SPRITES.megaRaichu, centerX + 80, centerY - 120, 2);
+
+    // Draw player's Pokémon (Lancet or Mega Lancet)
+    if (game.hasMegaEvolved) {
+        drawSprite(SPRITES.megaLancet, centerX - 150, centerY - 40, 2);
+    } else {
+        drawSprite(SPRITES.lancet, centerX - 140, centerY - 20, 2);
+    }
+
+    // Draw Hazel
+    drawSprite(SPRITES.hazel, centerX - 180, centerY + 60, 2);
+
+    // Text
+    ctx.fillStyle = '#ffff00';
+    ctx.font = 'bold 24px Arial';
+    ctx.fillText('Wild Mega Raichu Y!', centerX - 100, 50);
+
+    if (!game.battleStarted) {
+        game.battleStarted = true;
+        startDialogueSequence(DIALOGUES.hazelIntervenes, GAME_STATES.BATTLE);
+    }
+}
+
 function update() {
     // Handle player movement
     if (game.state === GAME_STATES.BEDROOM || game.state === GAME_STATES.CITY) {
-        if (keys['arrowup'] || keys['w']) game.playerY -= 2;
-        if (keys['arrowdown'] || keys['s']) game.playerY += 2;
-        if (keys['arrowleft'] || keys['a']) game.playerX -= 2;
-        if (keys['arrowright'] || keys['d']) game.playerX += 2;
+        const speed = 3;
+        if (keys['arrowup'] || keys['w']) game.playerY -= speed;
+        if (keys['arrowdown'] || keys['s']) game.playerY += speed;
+        if (keys['arrowleft'] || keys['a']) game.playerX -= speed;
+        if (keys['arrowright'] || keys['d']) game.playerX += speed;
 
         // Boundary check
-        game.playerX = Math.max(0, Math.min(canvas.width - 32, game.playerX));
-        game.playerY = Math.max(0, Math.min(canvas.height - 32, game.playerY));
+        game.playerX = Math.max(0, Math.min(canvas.width - 40, game.playerX));
+        game.playerY = Math.max(0, Math.min(canvas.height - 50, game.playerY));
 
         // Check for interactions
         checkInteractions();
@@ -291,23 +372,12 @@ function update() {
 }
 
 function checkInteractions() {
-    if (game.state === GAME_STATES.BEDROOM) {
-        // Door interaction
-        if (game.playerX > canvas.width - 120 && game.playerX < canvas.width - 50 &&
-            game.playerY > canvas.height * 0.35) {
-            showDialogue(DIALOGUES.wakeUp, GAME_STATES.CITY);
-        }
-    }
-    
     if (game.state === GAME_STATES.CITY && game.playerX > canvas.width - 350) {
         // Reached the lab
-        showDialogue(DIALOGUES.professorOak);
-        game.hasPokedex = true;
-        setTimeout(() => {
-            game.state = GAME_STATES.CITY;
-            game.playerX = 100;
-            showDialogue(DIALOGUES.beforeBattle, GAME_STATES.BATTLE);
-        }, 1000);
+        if (!game.dialogueShown) {
+            game.dialogueShown = true;
+            startDialogueSequence(DIALOGUES.beforeBattle, GAME_STATES.BATTLE);
+        }
     }
 }
 
@@ -328,38 +398,15 @@ function draw() {
             drawBattle();
             break;
         case GAME_STATES.DIALOGUE:
-            drawLabScene();
+            if (game.nextState === GAME_STATES.CITY) {
+                drawLabScene();
+            } else if (game.nextState === GAME_STATES.BEDROOM) {
+                drawBedroom();
+            }
             break;
-    }
-}
-
-function drawBattle() {
-    drawBattleBackground();
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-
-    // Draw enemy (Mega Raichu)
-    drawSprite(SPRITES.megaRaichu, centerX + 100, centerY - 100, 2);
-
-    // Draw player's Pokémon (Lancet or Mega Lancet)
-    if (game.hasMegaEvolved) {
-        drawSprite(SPRITES.megaLancet, centerX - 150, centerY - 50, 2);
-    } else {
-        drawSprite(SPRITES.lancet, centerX - 140, centerY - 30, 2);
-    }
-
-    // Draw Hazel
-    drawSprite(SPRITES.hazel, centerX - 180, centerY + 80, 2);
-
-    // Text
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 18px Arial';
-    ctx.fillText('Wild Mega Raichu Y!', centerX - 80, 40);
-
-    if (!game.battleStarted) {
-        game.battleStarted = true;
-        showDialogue(DIALOGUES.hazelIntervenes, GAME_STATES.BATTLE);
+        case GAME_STATES.INTRO:
+            drawBedroom();
+            break;
     }
 }
 
@@ -389,16 +436,25 @@ function handleBattleAction(action) {
         setTimeout(() => {
             battleText.textContent = 'Lancet Mega Evolved into Mega Lancet!';
             setTimeout(() => {
-                battleText.textContent = 'Lancet used a powerful Dragon Steel attack!';
+                battleText.textContent = 'Mega Lancet used Dragon Steel Attack!';
                 setTimeout(() => {
                     battleText.textContent = 'Mega Raichu Y was defeated!';
                     setTimeout(() => {
                         battleScreen.classList.add('hidden');
-                        showDialogue(DIALOGUES.victoryCongrats, GAME_STATES.CITY);
+                        startDialogueSequence(DIALOGUES.victoryCongrats, GAME_STATES.CITY);
                     }, 1500);
                 }, 1500);
             }, 1500);
         }, 1500);
+    } else if (action === 'attack') {
+        const battleText = document.getElementById('battleText');
+        battleText.textContent = 'Lancet used a Steel attack!';
+    } else if (action === 'item') {
+        const battleText = document.getElementById('battleText');
+        battleText.textContent = 'Used a Potion!';
+    } else if (action === 'run') {
+        const battleText = document.getElementById('battleText');
+        battleText.textContent = 'Escape failed!';
     }
 }
 
@@ -410,9 +466,10 @@ function gameLoop() {
 }
 
 // Start the game
-gameLoop();
-
-// Initial state
-setTimeout(() => {
-    showDialogue(['Welcome to Pokémon Destiny!', 'You wake up in your bedroom...'], GAME_STATES.BEDROOM);
-}, 500);
+window.addEventListener('load', () => {
+    gameLoop();
+    // Start with intro dialogue
+    setTimeout(() => {
+        startDialogueSequence(DIALOGUES.intro, GAME_STATES.BEDROOM);
+    }, 300);
+});
